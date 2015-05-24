@@ -12,10 +12,12 @@ The goal of this assignment is to build a predictive model to determine how well
 setwd("~/Dropbox/RTutorials/Coursera8-PracticalMachineLearning/C8_PracMachLearn/")
 
 if (! file.exists('data/pml-training.csv')) {
-    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', destfile = 'data/pml-training.csv')
+    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv',
+                  destfile = 'data/pml-training.csv')
 }
-if (! file.exists('data/pml-testing.csv')) {
-    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', destfile = 'data/pml-testing.csv')
+if (! file.exists('data/pml-testing.csv')) { 
+    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv',
+                  destfile = 'data/pml-testing.csv')
 }
 pml_training <- read.csv("data//pml-training.csv")
 pml_testing <- read.csv("data//pml-testing.csv")
@@ -71,7 +73,7 @@ ggplot(correlations, aes(y=Var1, x=Var2)) +
 
 ##Predictive Model
 
-Given that the outcome variable is categorical and that the relations among the outcome and predictors is non-linear, I decided to create random forest models. Random forest models use bootstrapping to select a subset of candidate variables at each split. I decided to use random forest models as they are typically among the top performing algorithms in prediction contests. I used the `randomForest` package in R, and although there are many arguments that can been adjusted in the function call, for the present assignment I varied the value of `mtry` to select my model, with my final model using `mtry = 9`, as it produced the lowest estimate of OOB (0.26%) in my tests. `mtry` is the number of variables randomly sampled as candidates at each split. The results of my model testing is listed in the Appendix.
+Given that the outcome variable is categorical, that the relations among the outcome and predictors is non-linear, and that the predictors show some degree of correlation, I decided to create random forest models. Random forest models use bootstrapping to select a subset of candidate variables at each split. I decided to use random forest models as they are typically among the top performing algorithms in prediction contests. I used the `randomForest` package in R, and although there are many arguments that can been adjusted in the function call, for the present assignment I varied the value of `mtry` to select my model, with my final model using `mtry = 9`, as it produced the lowest estimate of OOB (0.26%) in my tests. `mtry` is the number of variables randomly sampled as candidates at each split. The results of my model testing is listed in the Appendix.
 
 Random forest models construct trees by using bootstrapping in which each tree is constructed using a subset of the original data. For each tree, the remaining subset of the original data (typically 30% of the data - see [here](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr)) is then classified, and across trees the classification accuracy is averaged to calculate the OOB error estimate. 
 
