@@ -9,7 +9,7 @@ The goal of this assignment is to build a predictive model to determine how well
 
 ##Downloading and loading the data into R
 ```{r set up wd lib, cache=TRUE}
-setwd("~/Dropbox/RTutorials/Coursera8-PracticalMachineLearning/C8PracMachLearn_CP")
+setwd("~/Dropbox/RTutorials/Coursera8-PracticalMachineLearning/C8_PracMachLearn/")
 
 if (! file.exists('data/pml-training.csv')) {
     download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', destfile = 'data/pml-training.csv')
