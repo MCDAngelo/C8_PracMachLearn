@@ -1,0 +1,135 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Maria D'Angelo"
+output: html_document
+---
+
+##Introduction
+The goal of this assignment is to build a predictive model to determine how well a particular exercise (Unilateral Dumbbell Biceps Curl) is done based on readings from a number of accelerometers. The model wast rained on a data set containing the measures from accelerometers on the belt, forearm, arm, and dumbbell. The data set contains the measures for 6 male participants (aged 20-28 years) as they performed the exercise using a 1.25 kg dumbbell. Each participant performed the exercise 10 times in the correct manner, as well as 10 times for each of 5 ways of doing the exercise incorrectly. More information regarding the data set can be found [here]( http://groupware.les.inf.puc-rio.br/har).
+
+##Downloading and loading the data into R
+```{r set up wd lib, cache=TRUE}
+setwd("~/Dropbox/RTutorials/Coursera8-PracticalMachineLearning/C8PracMachLearn_CP")
+
+if (! file.exists('data/pml-training.csv')) {
+    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', destfile = 'data/pml-training.csv')
+}
+if (! file.exists('data/pml-testing.csv')) {
+    download.file('http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', destfile = 'data/pml-testing.csv')
+}
+pml_training <- read.csv("data//pml-training.csv")
+pml_testing <- read.csv("data//pml-testing.csv")
+```
+
+
+##Exploring the data
+
+First I determined how many variables were included in the data set (160), and took a look at the first few lines of the data. As is evident, there are many variables that are missing values in most of the observations (for space I have suppressed the code for the summary of the training data). Based on the description of the project and the data set acquisition described on the [Human Activity Recognition website](http://groupware.les.inf.puc-rio.br/har), I decided to only include variables that are measurements from the accelerometer, discarding the remaining variables. This left me with 52 predictor variables (plus the dependent variable, 'classe').
+
+```{r clean data}
+dim(pml_training)
+#summary(pml_training)
+
+inc_vars<- c('roll_belt', 'pitch_belt', 'yaw_belt', 'total_accel_belt',
+             'gyros_belt_x', 'gyros_belt_y', 'gyros_belt_z',
+             'accel_belt_x', 'accel_belt_y', 'accel_belt_z',
+             'magnet_belt_x', 'magnet_belt_y', 'magnet_belt_z',
+             'roll_arm', 'pitch_arm', 'yaw_arm', 'total_accel_arm',
+             'gyros_arm_x', 'gyros_arm_y', 'gyros_arm_z',
+             'accel_arm_x', 'accel_arm_y', 'accel_arm_z',
+             'magnet_arm_x', 'magnet_arm_y', 'magnet_arm_z',
+             'roll_dumbbell', 'pitch_dumbbell', 'yaw_dumbbell', 'total_accel_dumbbell',
+             'gyros_dumbbell_x', 'gyros_dumbbell_y', 'gyros_dumbbell_z',
+             'accel_dumbbell_x', 'accel_dumbbell_y', 'accel_dumbbell_z',
+             'magnet_dumbbell_x', 'magnet_dumbbell_y', 'magnet_dumbbell_z',
+             'roll_forearm', 'pitch_forearm', 'yaw_forearm', 'total_accel_forearm',
+             'gyros_forearm_x', 'gyros_forearm_y', 'gyros_forearm_z',
+             'accel_forearm_x', 'accel_forearm_y', 'accel_forearm_z',
+             'magnet_forearm_x', 'magnet_forearm_y', 'magnet_forearm_z')
+
+training_redVar <- pml_training[, c(inc_vars, "classe")]
+testing_redVar <- pml_testing[, inc_vars]
+
+dim(training_redVar)
+```
+
+To get a sense of how the different variables relate to one another, I calculated the correlation between the various measures and plotting any correlations that were greater than 0.5 or less than -0.5 using ggplot.
+
+```{r explore cor, fig.height=8, fig.width=10}
+var_cor <- cor(training_redVar[, 1:52])
+library(reshape2); library(ggplot2)
+correlations <- melt(var_cor)
+
+correlations$value2 <- ifelse(abs(correlations$value) < .5, NA, correlations$value)
+
+ggplot(correlations, aes(y=Var1, x=Var2)) +
+    geom_tile(aes(fill=value2)) + 
+    scale_fill_gradient(low="white", high="blue", name = "Correlation\nCoefficient") +
+    xlab("") + ylab("") + theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+##Predictive Model
+
+Given that the outcome variable is categorical and that the relations among the outcome and predictors is non-linear, I decided to create random forest models. Random forest models use bootstrapping to select a subset of candidate variables at each split. I decided to use random forest models as they are typically among the top performing algorithms in prediction contests. I used the `randomForest` package in R, and although there are many arguments that can been adjusted in the function call, for the present assignment I varied the value of `mtry` to select my model, with my final model using `mtry = 9`, as it produced the lowest estimate of OOB (0.26%) in my tests. `mtry` is the number of variables randomly sampled as candidates at each split. The results of my model testing is listed in the Appendix.
+
+Random forest models construct trees by using bootstrapping in which each tree is constructed using a subset of the original data. For each tree, the remaining subset of the original data (typically 30% of the data - see [here](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr)) is then classified, and across trees the classification accuracy is averaged to calculate the OOB error estimate. 
+
+```{r model, cache=TRUE, message=FALSE, fig.height=8}
+library(caret); library(randomForest)
+set.seed(369)
+
+modFitFinal <- randomForest(training_redVar[,-53], training_redVar$classe, mtry=9)
+modFitFinal
+
+imp <- varImp(modFitFinal)
+imp$Variable <- row.names(imp)
+imp <- imp[order(imp$Overall, decreasing = T),]
+ggplot(imp, aes(x = reorder(Variable, Overall), y = Overall, group =1)) + theme_classic() +
+    coord_flip() + geom_point(colour = "blue", alpha = .40, size = 4) +
+    xlab("Variable") + ylab("Overall Importance")
+```
+
+A graph of overall importance shows that the roll belt variable was the most important variable in training the random forest model. A cluster of other variables had high importance, including yaw-belt, pitch forearm, etc. Future work should examine how well models do that only include a subset of the variables, to determine whether all 52 included variables are needed for accurate prediction of classe. 
+
+##Fit on test data
+
+My model was 100% accurate in predicting the `classe` variable for the test set, which is consistent with the low class error and OOB estimate (0.26%) of the final model.
+
+```{r test fit, cache=TRUE, message=FALSE}
+test_fit <- predict(modFitFinal, testing_redVar)
+
+write_sub_files = function(x){
+  n = length(x)
+  for(i in 1:length(x)){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+write_sub_files(test_fit)
+```
+
+
+##Appendix 
+
+Here I show how I tested what model to use by varying the parameter `mtry`, which is the number of variables that the model randomly samples as candidate variables at each split. The default for classification is `sqrt(p)`, where `p` is the number of variables entered into the model. The default value for the current model was 7 trees, but I tested the range of +/- 2 trees around the default.  Based on OOB estimates of these runs, I selected a value of 9 for the `mtry` argument in my final model, as it had the lowest OOB estimate of the error rate (0.26%).
+
+```{r model appendix, cache=TRUE}
+set.seed(369)
+modFit <- randomForest(training_redVar[,-53], training_redVar$classe)
+modFit
+
+modFit6T <- randomForest(training_redVar[,-53], training_redVar$classe, mtry=6)
+modFit6T
+
+modFit5T <- randomForest(training_redVar[,-53], training_redVar$classe, mtry=5)
+modFit5T
+
+modFit8T <- randomForest(training_redVar[,-53], training_redVar$classe, mtry=8)
+modFit8T
+
+modFit9T <- randomForest(training_redVar[,-53], training_redVar$classe, mtry=9)
+modFit9T
+
+```
